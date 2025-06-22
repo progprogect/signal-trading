@@ -4,7 +4,7 @@ venv/
 env/
 .env
 
-# Базы данных
+# База данных
 *.db
 *.sqlite
 *.sqlite3
@@ -44,6 +44,22 @@ coverage.xml
 *.log
 *.logs
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Документация
+README.md
+*.md
+.github/
+
 # Системные файлы
 .DS_Store
 .DS_Store?
@@ -52,20 +68,6 @@ coverage.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Системные файлы
-.git/
-.gitignore
-README.md
-*.md
-.github/
 
 # Тестовые файлы
 test_*.py

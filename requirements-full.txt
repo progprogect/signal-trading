@@ -6,8 +6,8 @@ aiohttp-jinja2==1.6
 jinja2==3.1.6
 
 # Анализ данных
-pandas==2.1.4
-pandas-ta==0.3.12
+pandas==2.2.1
+pandas-ta==0.3.13
 numpy==1.24.3
 
 # HTTP запросы
@@ -21,5 +21,5 @@ yfinance==0.2.28
 python-binance==1.0.19
 
 # Дополнительные утилиты  
-python-dateutil==2.8.2
-pytz==2023.3 
+python-dateutil==2.9.0.post0
+pytz==2025.2 
