@@ -46,6 +46,17 @@ class WebInterface:
         self.cors.add(self.app.router.add_get('/api/settings', self.get_settings_api))
         self.cors.add(self.app.router.add_post('/api/settings', self.save_settings_api))
         self.cors.add(self.app.router.add_get('/api/status', self.get_status_api))
+        
+        # API для получения текущих RSI значений
+        self.cors.add(self.app.router.add_get('/api/current_rsi', self.get_current_rsi_api))
+        
+        # API для управления пользователями Telegram
+        self.cors.add(self.app.router.add_get('/api/telegram_users', self.get_telegram_users_api))
+        self.cors.add(self.app.router.add_post('/api/telegram_users', self.add_telegram_user_api))
+        self.cors.add(self.app.router.add_post('/api/telegram_users/{user_id}/approve', self.approve_telegram_user_api))
+        self.cors.add(self.app.router.add_post('/api/telegram_users/{user_id}/block', self.block_telegram_user_api))
+        self.cors.add(self.app.router.add_delete('/api/telegram_users/{user_id}', self.delete_telegram_user_api))
+        
         self.app.router.add_static('/static', 'static')
         
     @template('index.html')
@@ -258,6 +269,233 @@ class WebInterface:
             
         except Exception as e:
             logger.error(f"Ошибка в API статуса: {str(e)}")
+            return web.json_response({'error': str(e)}, status=500)
+    
+    async def get_current_rsi_api(self, request: web_request.Request):
+        """API для получения текущих значений RSI"""
+        try:
+            if not self.rsi_bot or not hasattr(self.rsi_bot, 'rsi_analyzer'):
+                return web.json_response({'error': 'RSI бот не инициализирован'}, status=500)
+            
+            # Получаем настройки пользователя
+            user_settings = self.database.get_user_settings()
+            if not user_settings:
+                return web.json_response({'error': 'Настройки не найдены'}, status=404)
+            
+            symbols = user_settings.get('symbols', [])
+            if not symbols:
+                return web.json_response({'error': 'Символы для анализа не настроены'}, status=404)
+            
+            current_rsi_data = []
+            
+            # Получаем текущие RSI значения через rsi_analyzer
+            for symbol in symbols:
+                try:
+                    # Получаем данные через гибридный коннектор
+                    user_settings = self.database.get_user_settings()
+                    timeframe = user_settings.get('timeframe', self.config.DEFAULT_TIMEFRAME) if user_settings else self.config.DEFAULT_TIMEFRAME
+                    df = await self.rsi_bot.hybrid_connector.get_historical_data(symbol, timeframe, 50)
+                    
+                    if df is not None and not df.empty and 'rsi' in df.columns:
+                        # RSI уже вычислен в DataFrame
+                        if len(df) > 0 and not df['rsi'].empty:
+                            current_rsi = float(df['rsi'].iloc[-1])
+                            current_price = float(df['close'].iloc[-1])
+                            
+                            # Определяем статус RSI
+                            if current_rsi <= self.config.RSI_OVERSOLD:
+                                status = 'oversold'
+                                status_text = 'Перепродано'
+                                status_color = 'success'
+                            elif current_rsi >= self.config.RSI_OVERBOUGHT:
+                                status = 'overbought'
+                                status_text = 'Перекуплено'
+                                status_color = 'danger'
+                            else:
+                                status = 'neutral'
+                                status_text = 'Нейтрально'
+                                status_color = 'secondary'
+                            
+                            current_rsi_data.append({
+                                'symbol': symbol,
+                                'rsi': round(current_rsi, 2),
+                                'price': round(current_price, 8),
+                                'status': status,
+                                'status_text': status_text,
+                                'status_color': status_color,
+                                'timestamp': datetime.now().isoformat()
+                            })
+                        else:
+                            logger.warning(f"Не удалось получить RSI для {symbol} - пустые данные")
+                            # Добавляем символ как недоступный
+                            current_rsi_data.append({
+                                'symbol': symbol,
+                                'rsi': None,
+                                'price': None,
+                                'status': 'unavailable',
+                                'status_text': 'N/A',
+                                'status_color': 'secondary',
+                                'timestamp': datetime.now().isoformat()
+                            })
+                    else:
+                        logger.warning(f"Нет данных для {symbol} или отсутствует колонка RSI")
+                        # Добавляем символ как недоступный
+                        current_rsi_data.append({
+                            'symbol': symbol,
+                            'rsi': None,
+                            'price': None,
+                            'status': 'unavailable',
+                            'status_text': 'N/A',
+                            'status_color': 'secondary',
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        
+                except Exception as e:
+                    logger.warning(f"Данные для {symbol} временно недоступны: {str(e)}")
+                    # Добавляем символ как недоступный
+                    current_rsi_data.append({
+                        'symbol': symbol,
+                        'rsi': None,
+                        'price': None,
+                        'status': 'unavailable',
+                        'status_text': 'N/A',
+                        'status_color': 'secondary',
+                        'timestamp': datetime.now().isoformat()
+                    })
+            
+            return web.json_response({
+                'symbols': current_rsi_data,
+                'total_symbols': len(symbols),
+                'successful': len([s for s in current_rsi_data if s['status'] not in ['unavailable', 'error']]),
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Ошибка в API текущих RSI: {str(e)}")
+            return web.json_response({'error': str(e)}, status=500)
+            
+    async def get_telegram_users_api(self, request: web_request.Request):
+        """API для получения пользователей Telegram"""
+        try:
+            users = self.database.get_telegram_users()
+            return web.json_response(users)
+            
+        except Exception as e:
+            logger.error(f"Ошибка при получении пользователей Telegram: {str(e)}")
+            return web.json_response({'error': str(e)}, status=500)
+            
+    async def add_telegram_user_api(self, request: web_request.Request):
+        """API для добавления пользователя Telegram вручную"""
+        try:
+            data = await request.json()
+            
+            user_id = data.get('user_id')
+            username = data.get('username', '')
+            first_name = data.get('first_name', '')
+            last_name = data.get('last_name', '')
+            
+            # Валидация user_id
+            if not user_id:
+                return web.json_response({'error': 'User ID обязателен'}, status=400)
+                
+            try:
+                user_id = int(user_id)
+            except ValueError:
+                return web.json_response({'error': 'User ID должен быть числом'}, status=400)
+                
+            # Проверяем, нет ли уже такого пользователя
+            existing_status = self.database.get_telegram_user_status(user_id)
+            if existing_status:
+                return web.json_response({'error': f'Пользователь с ID {user_id} уже существует (статус: {existing_status})'}, status=409)
+            
+            # Добавляем пользователя
+            success = self.database.add_telegram_user(
+                user_id=user_id,
+                username=username.strip() if username else None,
+                first_name=first_name.strip() if first_name else None,
+                last_name=last_name.strip() if last_name else None
+            )
+            
+            if success:
+                logger.info(f"Пользователь {user_id} добавлен администратором")
+                return web.json_response({'success': True, 'message': f'Пользователь {user_id} добавлен на модерацию'})
+            else:
+                return web.json_response({'error': 'Ошибка при добавлении пользователя'}, status=500)
+                
+        except Exception as e:
+            logger.error(f"Ошибка при добавлении пользователя Telegram: {str(e)}")
+            return web.json_response({'error': str(e)}, status=500)
+            
+    async def approve_telegram_user_api(self, request: web_request.Request):
+        """API для одобрения пользователя Telegram"""
+        try:
+            user_id = int(request.match_info['user_id'])
+            
+            success = self.database.update_telegram_user_status(user_id, 'approved')
+            
+            if success:
+                # Уведомляем пользователя об одобрении (для приватных чатов user_id = chat_id)
+                try:
+                    if self.rsi_bot and self.rsi_bot.telegram_bot:
+                        await self.rsi_bot.telegram_bot.send_message(
+                            chat_id=user_id,
+                            text="✅ Ваша заявка одобрена!\n\n"
+                                 "Теперь вы будете получать RSI сигналы о важных движениях на рынке.\n"
+                                 "Добро пожаловать в систему торговых сигналов!"
+                        )
+                except Exception as e:
+                    logger.error(f"Ошибка при уведомлении пользователя об одобрении: {str(e)}")
+                
+                return web.json_response({'success': True})
+            else:
+                return web.json_response({'error': 'Пользователь не найден'}, status=404)
+                
+        except Exception as e:
+            logger.error(f"Ошибка при одобрении пользователя: {str(e)}")
+            return web.json_response({'error': str(e)}, status=500)
+            
+    async def block_telegram_user_api(self, request: web_request.Request):
+        """API для блокировки пользователя Telegram"""
+        try:
+            user_id = int(request.match_info['user_id'])
+            
+            success = self.database.update_telegram_user_status(user_id, 'blocked')
+            
+            if success:
+                # Уведомляем пользователя о блокировке (для приватных чатов user_id = chat_id)
+                try:
+                    if self.rsi_bot and self.rsi_bot.telegram_bot:
+                        await self.rsi_bot.telegram_bot.send_message(
+                            chat_id=user_id,
+                            text="🚫 Доступ к боту ограничен\n\n"
+                                 "Ваша заявка была отклонена администратором.\n"
+                                 "Если у вас есть вопросы, обратитесь к администратору."
+                        )
+                except Exception as e:
+                    logger.error(f"Ошибка при уведомлении пользователя о блокировке: {str(e)}")
+                
+                return web.json_response({'success': True})
+            else:
+                return web.json_response({'error': 'Пользователь не найден'}, status=404)
+                
+        except Exception as e:
+            logger.error(f"Ошибка при блокировке пользователя: {str(e)}")
+            return web.json_response({'error': str(e)}, status=500)
+            
+    async def delete_telegram_user_api(self, request: web_request.Request):
+        """API для удаления пользователя Telegram"""
+        try:
+            user_id = int(request.match_info['user_id'])
+            
+            success = self.database.delete_telegram_user(user_id)
+            
+            if success:
+                return web.json_response({'success': True})
+            else:
+                return web.json_response({'error': 'Пользователь не найден'}, status=404)
+                
+        except Exception as e:
+            logger.error(f"Ошибка при удалении пользователя: {str(e)}")
             return web.json_response({'error': str(e)}, status=500)
             
     async def start_server(self):

@@ -7,32 +7,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .signal-card {
-            transition: transform 0.2s;
-            border-left: 4px solid #007bff;
-        }
-        .signal-card:hover {
-            transform: translateY(-2px);
-        }
+        .signal-card { transition: transform 0.2s; border-left: 4px solid #007bff; }
+        .signal-card:hover { transform: translateY(-2px); }
         .signal-oversold { border-left-color: #dc3545; }
         .signal-overbought { border-left-color: #ffc107; }
-        .signal-exit { border-left-color: #28a745; }
-        .historical-signal { opacity: 0.8; border-style: dashed; }
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .refresh-btn {
-            animation: spin 2s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .nav-tabs .nav-link.active {
-            background-color: #007bff;
-            color: white;
-        }
+        .stats-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .refresh-btn { animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .nav-tabs .nav-link.active { background-color: #007bff; color: white; }
     </style>
 </head>
 <body class="bg-light">
@@ -42,7 +24,7 @@
                 <i class="fas fa-chart-line"></i> RSI Signals Bot
             </span>
             <div class="d-flex">
-                <span class="badge bg-success me-2" id="status-badge">
+                <span class="badge bg-success me-2">
                     <i class="fas fa-circle"></i> Работает
                 </span>
                 <button class="btn btn-outline-light btn-sm" onclick="refreshData()">
@@ -89,142 +71,55 @@
             </div>
         </div>
 
-        <div class="row">
-            <!-- Настройки -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5><i class="fas fa-cog"></i> Настройки</h5>
+        <!-- Навигационные вкладки -->
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#signals">
+                    <i class="fas fa-chart-line"></i> Сигналы
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#settings">
+                    <i class="fas fa-cog"></i> Настройки
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#users" onclick="refreshTelegramUsers()">
+                    <i class="fas fa-users"></i> Пользователи
+                </button>
+            </li>
+        </ul>
+
+        <!-- Содержимое вкладок -->
+        <div class="tab-content">
+            <!-- Вкладка Сигналы -->
+            <div class="tab-pane fade show active" id="signals">
+                <!-- Текущие RSI значения -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-tachometer-alt"></i> Текущие RSI значения</h5>
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshCurrentRSI()">
+                            <i class="fas fa-sync-alt" id="rsi-refresh-icon"></i> Обновить
+                        </button>
                     </div>
                     <div class="card-body">
-                        <form id="settings-form">
-                            <!-- Таймфрейм -->
-                            <div class="mb-4">
-                                <label class="form-label"><strong>📊 Таймфрейм для анализа</strong></label>
-                                <select class="form-select" id="timeframe">
-                                    {% for tf in available_timeframes %}
-                                    <option value="{{ tf }}" {% if tf == settings.timeframe %}selected{% endif %}>
-                                        {{ tf }} {% if tf == '5m' %}(рекомендуется){% endif %}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text">Интервал для анализа RSI: чем меньше интервал, тем больше сигналов</div>
+                        <div id="current-rsi-container">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary"></div>
+                                <p class="mt-2">Загрузка текущих RSI значений...</p>
                             </div>
-
-                            <!-- Информация о RSI уровнях -->
-                            <div class="mb-4">
-                                <label class="form-label"><strong>⚙️ Уровни RSI</strong></label>
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i> 
-                                    <strong>Автоматические уровни:</strong><br>
-                                    🔴 Перепроданность: {{ settings.rsi_oversold }}<br>
-                                    🟡 Перекупленность: {{ settings.rsi_overbought }}<br>
-                                    <small>Эти уровни оптимальны и не требуют изменения</small>
-                                </div>
-                            </div>
-
-                            <!-- Управление символами -->
-                            <div class="mb-4">
-                                <label class="form-label"><strong>💰 Монеты для анализа</strong></label>
-                                
-                                <!-- Инструкции -->
-                                <div class="alert alert-warning mb-3">
-                                    <h6><i class="fas fa-lightbulb"></i> Как правильно вводить символы:</h6>
-                                    <ul class="mb-2">
-                                        <li><strong>Формат:</strong> <code>BTCUSDT</code> (название монеты + USDT)</li>
-                                        <li><strong>Примеры:</strong> BTC, DOGE, PEPE, SUI, BIGTIME, ALT, WLD</li>
-                                        <li><strong>Автодополнение:</strong> можно вводить без USDT (добавится автоматически)</li>
-                                        <li><strong>Регистр:</strong> не важен (автоматически приведется к верхнему регистру)</li>
-                                    </ul>
-                                </div>
-
-                                <!-- Быстрое добавление популярных монет -->
-                                <div class="mb-3">
-                                    <label class="form-label">🚀 Быстрое добавление популярных монет:</label>
-                                    <div class="d-flex flex-wrap gap-2 mb-3">
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('BTC')">
-                                            ₿ BTC
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('ETH')">
-                                            Ξ ETH
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('DOGE')">
-                                            🐕 DOGE
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('PEPE')">
-                                            🐸 PEPE
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('SUI')">
-                                            🌊 SUI
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('BIGTIME')">
-                                            ⏰ BIGTIME
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('ALT')">
-                                            ⭐ ALT
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('WLD')">
-                                            🌍 WLD
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Список текущих символов -->
-                                <div id="symbols-container">
-                                    {% for symbol in settings.symbols %}
-                                    <div class="input-group mb-2 symbol-input">
-                                        <span class="input-group-text">💰</span>
-                                        <input type="text" class="form-control" value="{{ symbol }}" placeholder="Например: BTCUSDT или BTC">
-                                        <button class="btn btn-outline-danger" type="button" onclick="removeSymbol(this)" title="Удалить символ">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                
-                                <!-- Кнопки управления -->
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addSymbol()">
-                                        <i class="fas fa-plus"></i> Добавить монету
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllSymbols()">
-                                        <i class="fas fa-broom"></i> Очистить все
-                                    </button>
-                                    <button type="button" class="btn btn-outline-info btn-sm" onclick="validateSymbols()">
-                                        <i class="fas fa-check"></i> Проверить символы
-                                    </button>
-                                </div>
-                                
-                                <!-- Счетчик символов -->
-                                <div class="mt-2">
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        Количество монет: <span id="symbols-count">{{ settings.symbols|length }}</span>
-                                        (рекомендуется 3-8 монет для оптимальной работы)
-                                    </small>
-                                </div>
-                            </div>
-
-                            <!-- Кнопка сохранения -->
-                            <button type="submit" class="btn btn-success w-100 btn-lg">
-                                <i class="fas fa-save"></i> Сохранить настройки
-                            </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Сигналы -->
-            <div class="col-md-8">
                 <div class="card">
                     <div class="card-header">
                         <h5><i class="fas fa-history"></i> История RSI сигналов</h5>
                     </div>
-                    
                     <div class="card-body">
                         <!-- Фильтры -->
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <select class="form-select" id="symbol-filter">
                                     <option value="">Все монеты</option>
                                     {% for symbol in settings.symbols %}
@@ -232,7 +127,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <select class="form-select" id="signal-type-filter">
                                     <option value="">Все типы сигналов</option>
                                     <option value="important">Только важные (входы в зоны)</option>
@@ -240,54 +135,295 @@
                                     <option value="overbought_enter">🟡 Только перекупленность</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <button class="btn btn-outline-primary w-100" onclick="refreshSignalsHistory()">
                                     <i class="fas fa-sync-alt"></i> Обновить
                                 </button>
                             </div>
-                            <div class="col-md-12 mt-2">
-                                <button class="btn btn-warning btn-sm" onclick="clearCacheAndReload()">
-                                    <i class="fas fa-trash"></i> Очистить кэш и перезагрузить
+                            <div class="col-md-3">
+                                <button class="btn btn-warning w-100" onclick="clearCacheAndReload()">
+                                    <i class="fas fa-trash"></i> Очистить кэш
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Группы сигналов по времени -->
+                        <!-- Группы сигналов -->
                         <div style="max-height: 700px; overflow-y: auto;" id="signals-history-container">
-                            <!-- Сегодня -->
-                            <div class="mb-4" id="today-section">
-                                <h6 class="text-primary border-bottom pb-2">
-                                    <i class="fas fa-calendar-day"></i> Сегодня
-                                </h6>
-                                <div id="today-signals">
-                                    <div class="text-center text-muted py-3">
-                                        <small>Загрузка сигналов...</small>
+                            <div id="today-section" class="mb-4">
+                                <h6 class="text-primary border-bottom pb-2"><i class="fas fa-calendar-day"></i> Сегодня</h6>
+                                <div id="today-signals"><div class="text-center text-muted py-3"><small>Загрузка...</small></div></div>
+                            </div>
+                            <div id="this-week-section" class="mb-4">
+                                <h6 class="text-info border-bottom pb-2"><i class="fas fa-calendar-week"></i> На этой неделе</h6>
+                                <div id="this-week-signals"><div class="text-center text-muted py-3"><small>Загрузка...</small></div></div>
+                            </div>
+                            <div id="last-week-section" class="mb-4">
+                                <h6 class="text-secondary border-bottom pb-2"><i class="fas fa-calendar-alt"></i> На прошлой неделе</h6>
+                                <div id="last-week-signals"><div class="text-center text-muted py-3"><small>Загрузка...</small></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка Настройки -->
+            <div class="tab-pane fade" id="settings">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-cog"></i> Настройки бота</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="settings-form">
+                                    <!-- Таймфрейм -->
+                                    <div class="mb-4">
+                                        <label class="form-label"><strong>📊 Таймфрейм для анализа</strong></label>
+                                        <select class="form-select" id="timeframe">
+                                            {% for tf in available_timeframes %}
+                                            <option value="{{ tf }}" {% if tf == settings.timeframe %}selected{% endif %}>
+                                                {{ tf }} {% if tf == '5m' %}(рекомендуется){% endif %}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <!-- RSI уровни -->
+                                    <div class="mb-4">
+                                        <label class="form-label"><strong>⚙️ Уровни RSI</strong></label>
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i> 
+                                            <strong>Автоматические уровни:</strong><br>
+                                            🔴 Перепроданность: {{ settings.rsi_oversold }}<br>
+                                            🟡 Перекупленность: {{ settings.rsi_overbought }}<br>
+                                            <small>Эти уровни оптимальны и не требуют изменения</small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Символы -->
+                                    <div class="mb-4">
+                                        <label class="form-label"><strong>💰 Монеты для анализа</strong></label>
+                                        
+                                        <!-- Инструкции -->
+                                        <div class="alert alert-warning mb-3">
+                                            <h6><i class="fas fa-lightbulb"></i> Как правильно вводить символы:</h6>
+                                            <ul class="mb-2">
+                                                <li><strong>Формат:</strong> <code>BTCUSDT</code> (название монеты + USDT)</li>
+                                                <li><strong>Примеры:</strong> BTC, DOGE, PEPE, SUI, BIGTIME, ALT, WLD</li>
+                                                <li><strong>Автодополнение:</strong> можно вводить без USDT</li>
+                                                <li><strong>Регистр:</strong> не важен</li>
+                                            </ul>
+                                        </div>
+
+                                        <!-- Быстрые кнопки -->
+                                        <div class="mb-3">
+                                            <label class="form-label">🚀 Быстрое добавление:</label>
+                                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('BTC')">₿ BTC</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('ETH')">Ξ ETH</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('DOGE')">🐕 DOGE</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('PEPE')">🐸 PEPE</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('SUI')">🌊 SUI</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('BIGTIME')">⏰ BIGTIME</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('ALT')">⭐ ALT</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addQuickSymbol('WLD')">🌍 WLD</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Список символов -->
+                                        <div id="symbols-container">
+                                            {% for symbol in settings.symbols %}
+                                            <div class="input-group mb-2 symbol-input">
+                                                <span class="input-group-text">💰</span>
+                                                <input type="text" class="form-control" value="{{ symbol }}" placeholder="Например: BTCUSDT">
+                                                <button class="btn btn-outline-danger" type="button" onclick="removeSymbol(this)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        
+                                        <!-- Кнопки управления -->
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addSymbol()">
+                                                <i class="fas fa-plus"></i> Добавить
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllSymbols()">
+                                                <i class="fas fa-broom"></i> Очистить все
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Счетчик -->
+                                        <div class="mt-2">
+                                            <small class="text-muted">
+                                                Количество: <span id="symbols-count">{{ settings.symbols|length }}</span>
+                                                (рекомендуется 3-8 монет)
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Кнопка сохранения -->
+                                    <button type="submit" class="btn btn-success w-100 btn-lg">
+                                        <i class="fas fa-save"></i> Сохранить настройки
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Статистика -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-info-circle"></i> Информация о боте</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <h4 class="text-primary">{{ settings.symbols|length }}</h4>
+                                            <small class="text-muted">Активных монет</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <h4 class="text-info">{{ settings.timeframe }}</h4>
+                                            <small class="text-muted">Таймфрейм</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="alert alert-info mb-0">
+                                    <h6><i class="fas fa-lightbulb"></i> Рекомендации:</h6>
+                                    <ul class="mb-0">
+                                        <li>Используйте 3-8 монет для оптимальной работы</li>
+                                        <li>Таймфрейм 5m дает больше сигналов</li>
+                                        <li>RSI уровни 30/70 являются оптимальными</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка Пользователи -->
+            <div class="tab-pane fade" id="users">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-users"></i> Управление пользователями Telegram</h5>
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshTelegramUsers()">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Информация -->
+                        <div class="alert alert-info mb-4">
+                            <h6><i class="fas fa-info-circle"></i> Система модерации:</h6>
+                            <ul class="mb-2">
+                                <li>Добавляйте пользователей вручную через форму ниже</li>
+                                <li>Новые пользователи появятся со статусом "Ожидает модерации"</li>
+                                <li>Вы можете одобрить или заблокировать пользователей</li>
+                                <li>Только одобренные пользователи получают RSI сигналы</li>
+                            </ul>
+                            <small class="text-muted">
+                                <strong>Как получить Telegram ID:</strong> Отправьте сообщение боту <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a> или <a href="https://t.me/getmyid_bot" target="_blank">@getmyid_bot</a>
+                            </small>
+                        </div>
+
+                        <!-- Форма добавления пользователя -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-user-plus"></i> Добавить пользователя</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="add-user-form">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="form-group">
+                                                <label for="user-id">Telegram User ID / Chat ID <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="user-id" required 
+                                                       placeholder="Например: 123456789">
+                                                <small class="form-text text-muted">
+                                                    Для приватных чатов User ID = Chat ID
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-group">
+                                                <label for="user-username">Username (без @)</label>
+                                                <input type="text" class="form-control" id="user-username" 
+                                                       placeholder="Например: john_doe">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group">
+                                                <label for="user-first-name">Имя</label>
+                                                <input type="text" class="form-control" id="user-first-name" 
+                                                       placeholder="Иван">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group">
+                                                <label for="user-last-name">Фамилия</label>
+                                                <input type="text" class="form-control" id="user-last-name" 
+                                                       placeholder="Петров">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group">
+                                                <label>&nbsp;</label>
+                                                <button type="submit" class="btn btn-primary w-100">
+                                                    <i class="fas fa-plus"></i> Добавить
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Статистика -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="total-users-count">0</h4>
+                                        <small>Всего пользователей</small>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- На этой неделе -->
-                            <div class="mb-4" id="this-week-section">
-                                <h6 class="text-info border-bottom pb-2">
-                                    <i class="fas fa-calendar-week"></i> На этой неделе
-                                </h6>
-                                <div id="this-week-signals">
-                                    <div class="text-center text-muted py-3">
-                                        <small>Загрузка сигналов...</small>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="approved-users-count">0</h4>
+                                        <small>Одобрено</small>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- На прошлой неделе -->
-                            <div class="mb-4" id="last-week-section">
-                                <h6 class="text-secondary border-bottom pb-2">
-                                    <i class="fas fa-calendar-alt"></i> На прошлой неделе
-                                </h6>
-                                <div id="last-week-signals">
-                                    <div class="text-center text-muted py-3">
-                                        <small>Загрузка сигналов...</small>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-dark">
+                                    <div class="card-body text-center">
+                                        <h4 id="pending-users-count">0</h4>
+                                        <small>Ожидают модерации</small>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="blocked-users-count">0</h4>
+                                        <small>Заблокировано</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Список пользователей -->
+                        <div id="telegram-users-container">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary"></div>
+                                <p class="mt-2">Загрузка пользователей...</p>
                             </div>
                         </div>
                     </div>
@@ -298,43 +434,135 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Автообновление данных каждые 30 секунд
+        // Автообновление сигналов и RSI
         setInterval(refreshSignalsHistory, 30000);
+        setInterval(refreshCurrentRSI, 60000); // Обновляем RSI каждую минуту
 
         function refreshData() {
             const icon = document.getElementById('refresh-icon');
             icon.classList.add('refresh-btn');
-            
             refreshSignalsHistory();
-            
-            setTimeout(() => {
-                icon.classList.remove('refresh-btn');
-            }, 2000);
+            refreshCurrentRSI();
+            setTimeout(() => icon.classList.remove('refresh-btn'), 2000);
         }
 
         function clearCacheAndReload() {
-            // Очистка кэша браузера
             if ('caches' in window) {
-                caches.keys().then(function(names) {
-                    for (let name of names) {
-                        caches.delete(name);
-                    }
-                });
+                caches.keys().then(names => names.forEach(name => caches.delete(name)));
             }
-            
-            // Принудительная перезагрузка страницы без кэша
             window.location.reload(true);
         }
 
+        // Работа с текущими RSI
+        async function refreshCurrentRSI() {
+            try {
+                const icon = document.getElementById('rsi-refresh-icon');
+                icon.classList.add('fa-spin');
+                
+                const timestamp = new Date().getTime();
+                const response = await fetch(`/api/current_rsi?_t=${timestamp}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                displayCurrentRSI(data.symbols);
+                
+            } catch (error) {
+                console.error('Ошибка при получении текущих RSI:', error);
+                document.getElementById('current-rsi-container').innerHTML = 
+                    '<div class="alert alert-warning">⚠️ Ошибка при загрузке RSI данных</div>';
+            } finally {
+                const icon = document.getElementById('rsi-refresh-icon');
+                icon?.classList.remove('fa-spin');
+            }
+        }
+
+        function displayCurrentRSI(symbols) {
+            const container = document.getElementById('current-rsi-container');
+            
+            if (!symbols || symbols.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">📊 Нет данных RSI для отображения</div>';
+                return;
+            }
+            
+            const symbolEmoji = {
+                'BTCUSDT': '₿', 'ETHUSDT': 'Ξ', 'DOGEUSDT': '🐕', 'PEPEUSDT': '🐸',
+                'SUIUSDT': '🌊', 'BIGTIMEUSDT': '⏰', 'ALTUSDT': '⭐',
+                'WLDUSDT': '🌍'
+            };
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            
+            let html = `<div class="row mb-3">`;
+            
+            symbols.forEach((symbol, index) => {
+                const emoji = symbolEmoji[symbol.symbol] || '💰';
+                const symbolName = symbol.symbol.replace('USDT', '');
+                
+                let cardClass = 'border-secondary';
+                let textClass = 'text-dark';
+                let rsiDisplay = 'N/A';
+                let priceDisplay = 'N/A';
+                
+                if (symbol.status === 'error' || symbol.status === 'unavailable') {
+                    cardClass = 'border-secondary';
+                    textClass = 'text-muted';
+                    rsiDisplay = 'N/A';
+                } else if (symbol.rsi !== null) {
+                    rsiDisplay = symbol.rsi;
+                    priceDisplay = `$${symbol.price.toFixed(8)}`;
+                    
+                    if (symbol.status === 'oversold') {
+                        cardClass = 'border-success';
+                        textClass = 'text-success';
+                    } else if (symbol.status === 'overbought') {
+                        cardClass = 'border-danger';
+                        textClass = 'text-danger';
+                    }
+                }
+                
+                html += `
+                    <div class="col-md-4 col-lg-3 mb-3">
+                        <div class="card ${cardClass} h-100">
+                            <div class="card-body text-center p-3">
+                                <h6 class="card-title mb-2">${emoji} ${symbolName}</h6>
+                                <h4 class="${textClass} mb-1">${rsiDisplay}</h4>
+                                <small class="text-muted d-block">RSI</small>
+                                ${symbol.status !== 'error' && symbol.status !== 'unavailable' ? `
+                                    <small class="text-muted d-block mt-2">${priceDisplay}</small>
+                                    <span class="badge bg-${symbol.status_color} mt-2">${symbol.status_text}</span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Переход на новую строку после каждых 4 элементов
+                if ((index + 1) % 4 === 0) {
+                    html += `</div><div class="row mb-3">`;
+                }
+            });
+            
+            html += `</div>`;
+            html += `<div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-clock"></i> Последнее обновление: ${timeStr}
+                        </small>
+                     </div>`;
+            
+            container.innerHTML = html;
+        }
+
+        // Работа с сигналами
         async function refreshSignalsHistory() {
             try {
-                // Добавляем timestamp для предотвращения кэширования
                 const timestamp = new Date().getTime();
                 const response = await fetch(`/api/signals?limit=200&_t=${timestamp}`);
                 const signals = await response.json();
                 groupAndDisplaySignals(signals);
-                
-                // Обновляем статистику
                 document.getElementById('total-signals').textContent = signals.length;
             } catch (error) {
                 console.error('Ошибка при обновлении сигналов:', error);
@@ -345,7 +573,6 @@
             const symbolFilter = document.getElementById('symbol-filter').value;
             const typeFilter = document.getElementById('signal-type-filter').value;
             
-            // Применяем фильтры
             let filteredSignals = signals;
             
             if (symbolFilter) {
@@ -360,7 +587,6 @@
                 filteredSignals = filteredSignals.filter(s => s.signal_type === typeFilter);
             }
             
-            // Группируем по периодам
             const now = new Date();
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const thisWeekStart = new Date(today.getTime() - (today.getDay() * 24 * 60 * 60 * 1000));
@@ -372,7 +598,6 @@
             
             filteredSignals.forEach(signal => {
                 const signalDate = new Date(signal.timestamp);
-                
                 if (signalDate >= today) {
                     todaySignals.push(signal);
                 } else if (signalDate >= thisWeekStart) {
@@ -382,7 +607,6 @@
                 }
             });
             
-            // Отображаем группы
             displaySignalGroup('today-signals', todaySignals, 'Сегодня сигналов не найдено');
             displaySignalGroup('this-week-signals', thisWeekSignals, 'На этой неделе сигналов не найдено');
             displaySignalGroup('last-week-signals', lastWeekSignals, 'На прошлой неделе сигналов не найдено');
@@ -392,11 +616,7 @@
             const container = document.getElementById(containerId);
             
             if (signals.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center text-muted py-3">
-                        <small>${emptyMessage}</small>
-                    </div>
-                `;
+                container.innerHTML = `<div class="text-center text-muted py-3"><small>${emptyMessage}</small></div>`;
                 return;
             }
             
@@ -426,12 +646,10 @@
                 }
             }
             
-            // Форматируем дату и время
             const signalDate = new Date(signal.timestamp);
             const dateStr = signalDate.toLocaleDateString('ru-RU');
             const timeStr = signalDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
             
-            // Получаем символ без USDT для эмодзи
             const symbolEmoji = {
                 'BTCUSDT': '₿', 'DOGEUSDT': '🐕', 'PEPEUSDT': '🐸',
                 'SUIUSDT': '🌊', 'BIGTIMEUSDT': '⏰', 'ALTUSDT': '⭐',
@@ -470,25 +688,15 @@
             `;
         }
 
-        // Загружаем данные при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            refreshSignalsHistory();
-            updateSymbolsCount();
-            
-            // Добавляем обработчики событий для всех существующих полей символов
-            document.querySelectorAll('#symbols-container input').forEach(input => {
-                input.addEventListener('input', updateSymbolsCount);
-            });
-        });
-
+        // Работа с настройками
         function addSymbol() {
             const container = document.getElementById('symbols-container');
             const div = document.createElement('div');
             div.className = 'input-group mb-2 symbol-input';
             div.innerHTML = `
                 <span class="input-group-text">💰</span>
-                <input type="text" class="form-control" placeholder="Например: BTCUSDT или BTC" onkeyup="updateSymbolsCount()">
-                <button class="btn btn-outline-danger" type="button" onclick="removeSymbol(this)" title="Удалить символ">
+                <input type="text" class="form-control" placeholder="Например: BTCUSDT">
+                <button class="btn btn-outline-danger" type="button" onclick="removeSymbol(this)">
                     <i class="fas fa-trash"></i>
                 </button>
             `;
@@ -502,7 +710,6 @@
         }
 
         function addQuickSymbol(symbol) {
-            // Проверяем, есть ли уже такой символ
             const inputs = document.querySelectorAll('#symbols-container input');
             const symbolWithUsdt = symbol.toUpperCase().endsWith('USDT') ? symbol.toUpperCase() : symbol.toUpperCase() + 'USDT';
             
@@ -510,23 +717,19 @@
                 const currentValue = input.value.trim().toUpperCase();
                 const currentWithUsdt = currentValue.endsWith('USDT') ? currentValue : currentValue + 'USDT';
                 if (currentWithUsdt === symbolWithUsdt) {
-                    // Подсвечиваем существующий элемент
                     input.style.border = '2px solid #28a745';
-                    setTimeout(() => {
-                        input.style.border = '';
-                    }, 2000);
+                    setTimeout(() => input.style.border = '', 2000);
                     return;
                 }
             }
             
-            // Добавляем новый символ
             const container = document.getElementById('symbols-container');
             const div = document.createElement('div');
             div.className = 'input-group mb-2 symbol-input';
             div.innerHTML = `
                 <span class="input-group-text">💰</span>
-                <input type="text" class="form-control" value="${symbolWithUsdt}" placeholder="Например: BTCUSDT или BTC" onkeyup="updateSymbolsCount()">
-                <button class="btn btn-outline-danger" type="button" onclick="removeSymbol(this)" title="Удалить символ">
+                <input type="text" class="form-control" value="${symbolWithUsdt}">
+                <button class="btn btn-outline-danger" type="button" onclick="removeSymbol(this)">
                     <i class="fas fa-trash"></i>
                 </button>
             `;
@@ -535,109 +738,37 @@
         }
 
         function clearAllSymbols() {
-            if (confirm('Вы уверены, что хотите удалить все монеты? Это действие нельзя отменить.')) {
+            if (confirm('Удалить все монеты?')) {
                 document.getElementById('symbols-container').innerHTML = '';
                 updateSymbolsCount();
-            }
-        }
-
-        function validateSymbols() {
-            const inputs = document.querySelectorAll('#symbols-container input');
-            let validCount = 0;
-            let invalidSymbols = [];
-            
-            inputs.forEach(input => {
-                const value = input.value.trim().toUpperCase();
-                if (!value) {
-                    input.style.border = '2px solid #ffc107';
-                    return;
-                }
-                
-                const symbolWithUsdt = value.endsWith('USDT') ? value : value + 'USDT';
-                
-                // Простая валидация
-                if (symbolWithUsdt.length >= 5 && symbolWithUsdt.endsWith('USDT') && /^[A-Z]+USDT$/.test(symbolWithUsdt)) {
-                    input.style.border = '2px solid #28a745';
-                    input.value = symbolWithUsdt;
-                    validCount++;
-                } else {
-                    input.style.border = '2px solid #dc3545';
-                    invalidSymbols.push(value);
-                }
-            });
-            
-            // Сброс стилей через 3 секунды
-            setTimeout(() => {
-                inputs.forEach(input => {
-                    input.style.border = '';
-                });
-            }, 3000);
-            
-            // Показываем результат
-            if (invalidSymbols.length > 0) {
-                alert(`Найдены некорректные символы: ${invalidSymbols.join(', ')}\n\nИспользуйте формат: BTCUSDT, DOGEUSDT и т.д.`);
-            } else if (validCount > 0) {
-                alert(`✅ Все ${validCount} символов корректны!`);
-            } else {
-                alert('⚠️ Добавьте хотя бы одну монету для анализа');
             }
         }
 
         function updateSymbolsCount() {
             const count = document.querySelectorAll('#symbols-container .symbol-input').length;
             document.getElementById('symbols-count').textContent = count;
-            
-            // Обновляем цвет рекомендации
-            const countElement = document.getElementById('symbols-count');
-            if (count === 0) {
-                countElement.style.color = '#dc3545';
-            } else if (count >= 3 && count <= 8) {
-                countElement.style.color = '#28a745';
-            } else {
-                countElement.style.color = '#ffc107';
-            }
         }
 
         // Обработка формы настроек
         document.getElementById('settings-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Собираем символы
             const symbolInputs = document.querySelectorAll('#symbols-container input');
             const symbols = Array.from(symbolInputs)
                 .map(input => input.value.trim().toUpperCase())
                 .filter(value => value)
                 .map(symbol => symbol.endsWith('USDT') ? symbol : symbol + 'USDT');
             
-            // Валидация на клиенте
             if (symbols.length === 0) {
-                alert('⚠️ Необходимо добавить хотя бы одну монету для анализа!');
-                return;
-            }
-            
-            // Проверка дубликатов
-            const uniqueSymbols = [...new Set(symbols)];
-            if (uniqueSymbols.length !== symbols.length) {
-                alert('⚠️ Найдены дублирующиеся символы. Пожалуйста, удалите повторы.');
-                return;
-            }
-            
-            // Проверка корректности символов
-            const invalidSymbols = uniqueSymbols.filter(symbol => 
-                symbol.length < 5 || !symbol.endsWith('USDT') || !/^[A-Z]+USDT$/.test(symbol)
-            );
-            
-            if (invalidSymbols.length > 0) {
-                alert(`❌ Некорректные символы: ${invalidSymbols.join(', ')}\n\nИспользуйте формат: BTCUSDT, DOGEUSDT и т.д.`);
+                alert('⚠️ Необходимо добавить хотя бы одну монету!');
                 return;
             }
             
             const settings = {
-                symbols: uniqueSymbols,
+                symbols: [...new Set(symbols)],
                 timeframe: document.getElementById('timeframe').value
             };
             
-            // Показываем индикатор загрузки
             const submitBtn = document.querySelector('#settings-form button[type="submit"]');
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
@@ -646,40 +777,262 @@
             try {
                 const response = await fetch('/api/settings', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(settings)
                 });
                 
-                const result = await response.json();
-                
                 if (response.ok) {
-                    // Показываем успешное сообщение
-                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Настройки сохранены!';
+                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Сохранено!';
                     submitBtn.className = 'btn btn-success w-100 btn-lg';
-                    
-                    // Обновляем страницу через 1.5 секунды
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    throw new Error(result.error || 'Неизвестная ошибка');
+                    const result = await response.json();
+                    throw new Error(result.error || 'Ошибка сохранения');
                 }
             } catch (error) {
-                console.error('Ошибка при сохранении настроек:', error);
-                alert(`❌ Ошибка при сохранении настроек:\n${error.message}`);
-                
-                // Восстанавливаем кнопку
+                alert(`❌ ${error.message}`);
                 submitBtn.innerHTML = originalText;
                 submitBtn.className = 'btn btn-success w-100 btn-lg';
                 submitBtn.disabled = false;
             }
         });
 
+        // Работа с пользователями Telegram
+        async function refreshTelegramUsers() {
+            try {
+                const response = await fetch('/api/telegram_users');
+                const users = await response.json();
+                displayTelegramUsers(users);
+                updateUserStatistics(users);
+            } catch (error) {
+                console.error('Ошибка:', error);
+                document.getElementById('telegram-users-container').innerHTML = 
+                    '<div class="alert alert-danger">Ошибка при загрузке пользователей</div>';
+            }
+        }
+        
+        function displayTelegramUsers(users) {
+            const container = document.getElementById('telegram-users-container');
+            
+            if (users.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Пользователей пока нет</h5>
+                        <p class="text-muted">Добавьте пользователей через форму выше</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const pending = users.filter(u => u.status === 'pending');
+            const approved = users.filter(u => u.status === 'approved');
+            const blocked = users.filter(u => u.status === 'blocked');
+            
+            let html = '';
+            
+            if (pending.length > 0) {
+                html += '<h6 class="text-warning mb-3"><i class="fas fa-clock"></i> Ожидают модерации:</h6>';
+                pending.forEach(user => html += createUserCard(user));
+            }
+            
+            if (approved.length > 0) {
+                html += '<h6 class="text-success mb-3 mt-4"><i class="fas fa-check-circle"></i> Одобренные:</h6>';
+                approved.forEach(user => html += createUserCard(user));
+            }
+            
+            if (blocked.length > 0) {
+                html += '<h6 class="text-danger mb-3 mt-4"><i class="fas fa-ban"></i> Заблокированные:</h6>';
+                blocked.forEach(user => html += createUserCard(user));
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function createUserCard(user) {
+            const statusBadge = {
+                'pending': '<span class="badge bg-warning text-dark">Ожидает</span>',
+                'approved': '<span class="badge bg-success">Одобрен</span>',
+                'blocked': '<span class="badge bg-danger">Заблокирован</span>'
+            }[user.status];
+            
+            const displayName = user.first_name || 'Неизвестно';
+            const username = user.username ? `@${user.username}` : 'Нет username';
+            const createdDate = new Date(user.created_at).toLocaleDateString('ru-RU');
+            
+            const actions = user.status === 'pending' 
+                ? `<button class="btn btn-success btn-sm me-2" onclick="approveUser(${user.user_id})">
+                     <i class="fas fa-check"></i> Одобрить
+                   </button>
+                   <button class="btn btn-danger btn-sm me-2" onclick="blockUser(${user.user_id})">
+                     <i class="fas fa-ban"></i> Заблокировать
+                   </button>`
+                : user.status === 'approved'
+                ? `<button class="btn btn-warning btn-sm me-2" onclick="blockUser(${user.user_id})">
+                     <i class="fas fa-ban"></i> Заблокировать
+                   </button>`
+                : `<button class="btn btn-success btn-sm me-2" onclick="approveUser(${user.user_id})">
+                     <i class="fas fa-check"></i> Одобрить
+                   </button>`;
+            
+            return `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <h6 class="mb-1">${displayName}</h6>
+                                <small class="text-muted">${username}</small>
+                                <br><small class="text-muted">ID: ${user.user_id}</small>
+                            </div>
+                            <div class="col-md-2">${statusBadge}</div>
+                            <div class="col-md-2">
+                                <small class="text-muted">Зарегистрирован:</small>
+                                <br><small>${createdDate}</small>
+                            </div>
+                            <div class="col-md-3">${actions}</div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteUser(${user.user_id})">
+                                    <i class="fas fa-trash"></i> Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateUserStatistics(users) {
+            const total = users.length;
+            const approved = users.filter(u => u.status === 'approved').length;
+            const pending = users.filter(u => u.status === 'pending').length;
+            const blocked = users.filter(u => u.status === 'blocked').length;
+            
+            document.getElementById('total-users-count').textContent = total;
+            document.getElementById('approved-users-count').textContent = approved;
+            document.getElementById('pending-users-count').textContent = pending;
+            document.getElementById('blocked-users-count').textContent = blocked;
+        }
+        
+        async function approveUser(userId) {
+            if (!confirm('Одобрить пользователя?')) return;
+            
+            try {
+                const response = await fetch(`/api/telegram_users/${userId}/approve`, { method: 'POST' });
+                if (response.ok) {
+                    await refreshTelegramUsers();
+                    alert('✅ Пользователь одобрен');
+                } else {
+                    throw new Error('Ошибка одобрения');
+                }
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        }
+        
+        async function blockUser(userId) {
+            if (!confirm('Заблокировать пользователя?')) return;
+            
+            try {
+                const response = await fetch(`/api/telegram_users/${userId}/block`, { method: 'POST' });
+                if (response.ok) {
+                    await refreshTelegramUsers();
+                    alert('✅ Пользователь заблокирован');
+                } else {
+                    throw new Error('Ошибка блокировки');
+                }
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        }
+        
+        async function deleteUser(userId) {
+            if (!confirm('Удалить пользователя? Действие нельзя отменить.')) return;
+            
+            try {
+                const response = await fetch(`/api/telegram_users/${userId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    await refreshTelegramUsers();
+                    alert('✅ Пользователь удален');
+                } else {
+                    throw new Error('Ошибка удаления');
+                }
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        }
+
         // Фильтры
         document.getElementById('symbol-filter').addEventListener('change', refreshSignalsHistory);
         document.getElementById('signal-type-filter').addEventListener('change', refreshSignalsHistory);
+
+        // Форма добавления пользователя
+        document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const userId = document.getElementById('user-id').value;
+            const username = document.getElementById('user-username').value;
+            const firstName = document.getElementById('user-first-name').value;
+            const lastName = document.getElementById('user-last-name').value;
+            
+            if (!userId) {
+                alert('⚠️ User ID обязателен!');
+                return;
+            }
+            
+            const userData = {
+                user_id: parseInt(userId),
+                username: username.trim(),
+                first_name: firstName.trim(),
+                last_name: lastName.trim()
+            };
+            
+            const submitBtn = document.querySelector('#add-user-form button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Добавление...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/telegram_users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Добавлен!';
+                    submitBtn.className = 'btn btn-success w-100';
+                    
+                    // Очищаем форму
+                    document.getElementById('add-user-form').reset();
+                    
+                    // Обновляем список пользователей
+                    await refreshTelegramUsers();
+                    
+                    alert('✅ ' + result.message);
+                    
+                    setTimeout(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.className = 'btn btn-primary w-100';
+                        submitBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error(result.error || 'Ошибка добавления');
+                }
+            } catch (error) {
+                alert('❌ ' + error.message);
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshSignalsHistory();
+            refreshCurrentRSI();
+            updateSymbolsCount();
+        });
     </script>
 </body>
 </html> 

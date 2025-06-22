@@ -39,6 +39,8 @@ class RSIBot:
         
         logger.info("RSI бот инициализирован")
         
+
+            
     async def update_settings(self):
         """Обновление настроек из базы данных"""
         try:
@@ -60,7 +62,7 @@ class RSIBot:
             logger.error(f"Ошибка при обновлении настроек: {str(e)}")
             
     async def send_telegram_notification(self, signal: Dict):
-        """Отправка уведомления в Telegram"""
+        """Отправка уведомления в Telegram всем одобренным пользователям"""
         try:
             # Формируем сообщение
             message = self.rsi_analyzer.get_signal_description(signal)
@@ -72,15 +74,38 @@ class RSIBot:
             )
             message += f"\n\n📊 [Открыть на TradingView]({tv_url})"
             
-            # Отправляем сообщение
-            await self.telegram_bot.send_message(
-                chat_id=self.config.TELEGRAM_CHAT_ID,
-                text=message,
-                parse_mode='Markdown',
-                disable_web_page_preview=True
-            )
+            # Получаем всех одобренных пользователей
+            approved_users = self.database.get_approved_telegram_users()
             
-            logger.info(f"Уведомление отправлено: {signal['symbol']} {signal['signal_type']}")
+            # Добавляем администратора, если его нет в списке
+            admin_id = int(self.config.TELEGRAM_CHAT_ID)
+            admin_in_list = any(user['user_id'] == admin_id for user in approved_users)
+            
+            if not admin_in_list:
+                approved_users.append({
+                    'user_id': admin_id,
+                    'username': 'admin',
+                    'first_name': 'Администратор',
+                    'last_name': ''
+                })
+            
+            # Отправляем сообщение всем одобренным пользователям
+            sent_count = 0
+            for user in approved_users:
+                try:
+                    # Для приватных чатов user_id = chat_id
+                    await self.telegram_bot.send_message(
+                        chat_id=user['user_id'],
+                        text=message,
+                        parse_mode='Markdown',
+                        disable_web_page_preview=True
+                    )
+                    sent_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Ошибка при отправке уведомления пользователю {user['user_id']}: {str(e)}")
+                    
+            logger.info(f"Уведомление отправлено {sent_count}/{len(approved_users)} пользователям: {signal['symbol']} {signal['signal_type']}")
             
         except Exception as e:
             logger.error(f"Ошибка при отправке уведомления: {str(e)}")
@@ -113,6 +138,8 @@ class RSIBot:
                     
         except Exception as e:
             logger.error(f"Ошибка при анализе {symbol}: {str(e)}")
+            
+
             
     async def run_analysis_cycle(self):
         """Один цикл анализа всех символов"""
