@@ -61,7 +61,7 @@ class RSIDatabase:
                 # Таблица для настроек пользователя (PostgreSQL)
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS user_settings (
-                        id INTEGER PRIMARY KEY DEFAULT 1,
+                        id INTEGER PRIMARY KEY,
                         symbols TEXT NOT NULL,
                         timeframe VARCHAR(10) NOT NULL,
                         rsi_oversold INTEGER DEFAULT 30,
@@ -163,8 +163,28 @@ class RSIDatabase:
             conn.close()
             logger.info(f"База данных ({self.db_type}) инициализирована")
             
+            # Создаем дефолтные настройки если их нет
+            self._create_default_settings()
+            
         except Exception as e:
             logger.error(f"Ошибка при инициализации базы данных: {str(e)}")
+            
+    def _create_default_settings(self):
+        """Создание дефолтных настроек пользователя"""
+        try:
+            # Проверяем, есть ли уже настройки
+            if self.get_user_settings() is None:
+                # Создаем дефолтные настройки
+                default_symbols = ["BTCUSDT", "DOGEUSDT", "PEPEUSDT", "SUIUSDT", "BIGTIMEUSDT", "ALTUSDT", "WLDUSDT"]
+                self.save_user_settings(
+                    symbols=default_symbols,
+                    timeframe="5m",
+                    rsi_oversold=30,
+                    rsi_overbought=70
+                )
+                logger.info("Созданы дефолтные настройки пользователя")
+        except Exception as e:
+            logger.error(f"Ошибка при создании дефолтных настроек: {str(e)}")
             
     def add_signal(self, symbol: str, timeframe: str, signal_type: str, 
                    rsi_value: float, price: float, timestamp, previous_rsi: float = None) -> bool:
@@ -207,12 +227,20 @@ class RSIDatabase:
             conn = self._get_connection()
             cursor = conn.cursor()
             
-            cursor.execute('''
-                SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
-                FROM rsi_signals
-                ORDER BY timestamp DESC
-                LIMIT ?
-            ''', (limit,))
+            if self.db_type == 'postgresql':
+                cursor.execute('''
+                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
+                    FROM rsi_signals
+                    ORDER BY timestamp DESC
+                    LIMIT %s
+                ''', (limit,))
+            else:
+                cursor.execute('''
+                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
+                    FROM rsi_signals
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                ''', (limit,))
             
             rows = cursor.fetchall()
             
@@ -241,13 +269,22 @@ class RSIDatabase:
             conn = self._get_connection()
             cursor = conn.cursor()
             
-            cursor.execute('''
-                SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
-                FROM rsi_signals
-                WHERE symbol = ?
-                ORDER BY timestamp DESC
-                LIMIT ?
-            ''', (symbol, limit))
+            if self.db_type == 'postgresql':
+                cursor.execute('''
+                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
+                    FROM rsi_signals
+                    WHERE symbol = %s
+                    ORDER BY timestamp DESC
+                    LIMIT %s
+                ''', (symbol, limit))
+            else:
+                cursor.execute('''
+                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
+                    FROM rsi_signals
+                    WHERE symbol = ?
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                ''', (symbol, limit))
             
             rows = cursor.fetchall()
             
