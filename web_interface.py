@@ -7,6 +7,7 @@ from aiohttp_jinja2 import template, setup as jinja2_setup
 import jinja2
 import aiohttp_cors
 from database import RSIDatabase
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,9 @@ class WebInterface:
             
     def setup_routes(self):
         """Настройка маршрутов"""
+        # Health check для Railway
+        self.cors.add(self.app.router.add_get('/health', self.health_check))
+        
         # Добавляем маршруты
         self.cors.add(self.app.router.add_get('/', self.index))
         self.cors.add(self.app.router.add_get('/api/signals', self.get_signals_api))
@@ -498,6 +502,14 @@ class WebInterface:
             logger.error(f"Ошибка при удалении пользователя: {str(e)}")
             return web.json_response({'error': str(e)}, status=500)
             
+    async def health_check(self, request: web_request.Request):
+        """Простой health check для Railway"""
+        return web.json_response({
+            'status': 'ok',
+            'timestamp': datetime.now().isoformat(),
+            'service': 'RSI Trading Bot'
+        })
+            
     async def start_server(self):
         """Запуск веб-сервера"""
         try:
@@ -509,5 +521,18 @@ class WebInterface:
             
             logger.info(f"Веб-сервер запущен на http://{self.config.WEB_HOST}:{self.config.WEB_PORT}")
             
+            # Возвращаем управление, но сохраняем ссылки для корректного завершения
+            self.runner = runner
+            self.site = site
+            
+            # Ждем бесконечно (пока не будет остановлен)
+            try:
+                while True:
+                    await asyncio.sleep(3600)  # Проверяем каждый час
+            except asyncio.CancelledError:
+                logger.info("Веб-сервер получил сигнал остановки")
+                await runner.cleanup()
+            
         except Exception as e:
-            logger.error(f"Ошибка при запуске веб-сервера: {str(e)}") 
+            logger.error(f"Ошибка при запуске веб-сервера: {str(e)}")
+            raise 

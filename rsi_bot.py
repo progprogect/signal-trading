@@ -168,8 +168,9 @@ class RSIBot:
             # Обновляем настройки из базы данных
             await self.update_settings()
             
-            # Запускаем веб-сервер
-            await self.web_interface.start_server()
+            # Запускаем веб-сервер в фоновом режиме
+            self.web_server_task = asyncio.create_task(self.web_interface.start_server())
+            logger.info(f"Веб-сервер запущен на http://{self.config.WEB_HOST}:{self.config.WEB_PORT}")
             
             # Основной цикл работы
             while self.is_running:
@@ -193,6 +194,14 @@ class RSIBot:
         try:
             self.is_running = False
             logger.info("🛑 Остановка RSI бота")
+            
+            # Останавливаем веб-сервер
+            if hasattr(self, 'web_server_task') and self.web_server_task:
+                self.web_server_task.cancel()
+                try:
+                    await self.web_server_task
+                except asyncio.CancelledError:
+                    pass
             
             # Закрываем соединения
             if hasattr(self.telegram_bot, 'session') and self.telegram_bot.session:
