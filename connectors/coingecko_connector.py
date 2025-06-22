@@ -21,16 +21,12 @@ class CoinGeckoConnector:
         # Маппинг символов в CoinGecko IDs
         symbol_mapping = {
             'BTCUSDT': 'bitcoin',
-            'ETHUSDT': 'ethereum',
             'DOGEUSDT': 'dogecoin',
-            'ADAUSDT': 'cardano',
-            'SOLUSDT': 'solana',
-            'XRPUSDT': 'ripple',
-            'DOTUSDT': 'polkadot',
-            'AVAXUSDT': 'avalanche-2',
-            'MATICUSDT': 'matic-network',
             'PEPEUSDT': 'pepe',
-            'SUIUSDT': 'sui'
+            'SUIUSDT': 'sui',
+            'BIGTIMEUSDT': 'big-time',
+            'ALTUSDT': 'altlayer',
+            'WLDUSDT': 'worldcoin-wld'
         }
         
         return symbol_mapping.get(symbol, None)

@@ -21,14 +21,12 @@ class KrakenConnector:
         # Маппинг символов в Kraken формат
         symbol_mapping = {
             'BTCUSDT': 'XXBTZUSD',
-            'ETHUSDT': 'XETHZUSD',
-            'DOGEUSDT': 'XDGZUSD',
-            'ADAUSDT': 'ADAUSD',
-            'SOLUSDT': 'SOLUSD',
-            'XRPUSDT': 'XXRPZUSD',
-            'DOTUSDT': 'DOTUSD',
-            'AVAXUSDT': 'AVAXUSD',
-            'MATICUSDT': 'MATICUSD'
+            'DOGEUSDT': 'DOGEUSD',
+            'PEPEUSDT': 'PEPEUSD',  # Возможно поддерживается
+            'SUIUSDT': 'SUIUSD',   # Возможно поддерживается
+            # Эти монеты могут не поддерживаться Kraken:
+            # 'BIGTIMEUSDT', 'ALTUSDT', 'WLDUSDT'
+            # Для них будем использовать другие коннекторы
         }
         
         return symbol_mapping.get(symbol, None)

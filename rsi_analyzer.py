@@ -74,7 +74,8 @@ class RSIAnalyzer:
                     signal_type=signal_type,
                     rsi_value=current_rsi,
                     price=current_price,
-                    timestamp=current_time
+                    timestamp=current_time,
+                    previous_rsi=previous_rsi
                 )
                 
                 logger.info(f"RSI сигнал: {symbol} {timeframe} {signal_type} "
@@ -193,9 +194,9 @@ class RSIAnalyzer:
             
             # Добавляем эмодзи в зависимости от символа
             symbol_emoji = {
-                'BTCUSDT': '₿', 'ETHUSDT': 'Ξ', 'DOGEUSDT': '🐕',
-                'ADAUSDT': '🌟', 'SOLUSDT': '☀️', 'XRPUSDT': '💧',
-                'DOTUSDT': '🔴', 'AVAXUSDT': '🏔️', 'MATICUSDT': '🔷'
+                'BTCUSDT': '₿', 'DOGEUSDT': '🐕', 'PEPEUSDT': '🐸',
+                'SUIUSDT': '🌊', 'BIGTIMEUSDT': '⏰', 'ALTUSDT': '⭐',
+                'WLDUSDT': '🌍'
             }.get(signal['symbol'], '💰')
             
             # Форматируем время

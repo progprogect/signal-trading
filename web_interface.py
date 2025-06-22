@@ -195,22 +195,37 @@ class WebInterface:
             
             symbols = data.get('symbols', self.config.DEFAULT_SYMBOLS)
             timeframe = data.get('timeframe', self.config.DEFAULT_TIMEFRAME)
-            rsi_oversold = int(data.get('rsi_oversold', self.config.RSI_OVERSOLD))
-            rsi_overbought = int(data.get('rsi_overbought', self.config.RSI_OVERBOUGHT))
             
-            # Валидация данных
+            # Валидация символов
             if not isinstance(symbols, list) or len(symbols) == 0:
-                return web.json_response({'error': 'Неверный список символов'}, status=400)
+                return web.json_response({'error': 'Необходимо указать хотя бы одну монету для анализа'}, status=400)
+            
+            # Проверяем корректность символов
+            valid_symbols = []
+            for symbol in symbols:
+                symbol = symbol.strip().upper()
+                if not symbol:
+                    continue
+                if not symbol.endswith('USDT'):
+                    symbol += 'USDT'
+                if len(symbol) >= 5 and symbol.endswith('USDT'):
+                    valid_symbols.append(symbol)
+                else:
+                    return web.json_response({'error': f'Неверный формат символа: {symbol}. Используйте формат BTCUSDT'}, status=400)
+            
+            if len(valid_symbols) == 0:
+                return web.json_response({'error': 'Не найдено ни одного корректного символа'}, status=400)
                 
             if timeframe not in self.config.AVAILABLE_TIMEFRAMES:
                 return web.json_response({'error': 'Неверный таймфрейм'}, status=400)
-                
-            if not (0 < rsi_oversold < rsi_overbought < 100):
-                return web.json_response({'error': 'Неверные уровни RSI'}, status=400)
+            
+            # RSI уровни берем из конфигурации (не изменяются пользователем)
+            rsi_oversold = self.config.RSI_OVERSOLD
+            rsi_overbought = self.config.RSI_OVERBOUGHT
             
             # Сохраняем настройки
             success = self.database.save_user_settings(
-                symbols=symbols,
+                symbols=valid_symbols,
                 timeframe=timeframe,
                 rsi_oversold=rsi_oversold,
                 rsi_overbought=rsi_overbought

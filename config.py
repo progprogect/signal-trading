@@ -10,10 +10,10 @@ TRADINGVIEW_PASSWORD = ""
 TELEGRAM_BOT_TOKEN = "7818586285:AAHGM-RP1-fn2fPhlJM6w1OPU8PJa8HbUMI"
 TELEGRAM_CHAT_ID = "319719503"
 
-# Символы для анализа (только поддерживаемые Kraken)
+# Символы для анализа (согласно требованиям пользователя)
 DEFAULT_SYMBOLS = [
-    "BTCUSDT", "ETHUSDT", "DOGEUSDT", "ADAUSDT", "SOLUSDT", 
-    "XRPUSDT", "DOTUSDT", "AVAXUSDT", "MATICUSDT"
+    'BTCUSDT', 'DOGEUSDT', 'PEPEUSDT', 'SUIUSDT', 
+    'BIGTIMEUSDT', 'ALTUSDT', 'WLDUSDT'
 ]
 
 # Настройки RSI

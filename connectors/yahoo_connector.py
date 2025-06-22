@@ -21,14 +21,10 @@ class YahooConnector:
             'DOGEUSDT': 'DOGE-USD',
             'PEPEUSDT': 'PEPE-USD',
             'SUIUSDT': 'SUI-USD',
-            # Добавим больше популярных монет, которые точно есть на Yahoo
-            'ETHUSDT': 'ETH-USD',
-            'ADAUSDT': 'ADA-USD',
-            'SOLUSDT': 'SOL-USD',
-            'XRPUSDT': 'XRP-USD',
-            'DOTUSDT': 'DOT-USD',
-            'AVAXUSDT': 'AVAX-USD',
-            'MATICUSDT': 'MATIC-USD'
+            # Новые символы - возможно поддерживаются
+            'BIGTIMEUSDT': 'BIGTIME-USD',
+            'ALTUSDT': 'ALT-USD', 
+            'WLDUSDT': 'WLD-USD'
         }
         
         return symbol_mapping.get(symbol, None)  # Возвращаем None если символ не найден

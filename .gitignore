@@ -19,19 +19,13 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Виртуальное окружение
+# Virtual Environment
 venv/
 env/
 ENV/
-.venv/
 
-# Логи
-*.log
-logs/
-
-# База данных
+# Database
 *.db
 *.sqlite
 *.sqlite3
@@ -41,9 +35,8 @@ logs/
 .idea/
 *.swp
 *.swo
-*~
 
-# Операционная система
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -52,18 +45,18 @@ logs/
 ehthumbs.db
 Thumbs.db
 
-# Временные файлы
-*.tmp
-*.temp
-.cache/
+# Logs
+*.log
+logs/
 
-# Конфигурация с секретами (если потребуется)
-# config_secret.py
-# .env
-
-# Статические файлы (если генерируются)
-static/generated/
-
-# Тестовые файлы
+# Debug files
+debug_*.py
 test_*.py
-*_test.py 
+
+# Config secrets (если есть приватные ключи)
+secrets.py
+.env
+
+# Temporary files
+temp/
+tmp/ 

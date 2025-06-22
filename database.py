@@ -27,9 +27,17 @@ class RSIDatabase:
                         rsi_value REAL NOT NULL,
                         price REAL NOT NULL,
                         timestamp DATETIME NOT NULL,
+                        previous_rsi REAL,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
+                
+                # Добавляем поле previous_rsi если его нет
+                try:
+                    cursor.execute('ALTER TABLE rsi_signals ADD COLUMN previous_rsi REAL')
+                except sqlite3.OperationalError:
+                    # Поле уже существует
+                    pass
                 
                 # Таблица для настроек пользователя
                 cursor.execute('''
@@ -61,7 +69,7 @@ class RSIDatabase:
             logger.error(f"Ошибка при инициализации базы данных: {str(e)}")
             
     def add_signal(self, symbol: str, timeframe: str, signal_type: str, 
-                   rsi_value: float, price: float, timestamp) -> bool:
+                   rsi_value: float, price: float, timestamp, previous_rsi: float = None) -> bool:
         """Добавление нового сигнала"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -75,12 +83,12 @@ class RSIDatabase:
                 
                 cursor.execute('''
                     INSERT INTO rsi_signals 
-                    (symbol, timeframe, signal_type, rsi_value, price, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (symbol, timeframe, signal_type, rsi_value, price, timestamp_str))
+                    (symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (symbol, timeframe, signal_type, rsi_value, price, timestamp_str, previous_rsi))
                 
                 conn.commit()
-                logger.info(f"Добавлен сигнал: {symbol} {signal_type} RSI={rsi_value:.2f}")
+                logger.info(f"Добавлен сигнал: {symbol} {signal_type} RSI={previous_rsi:.2f}->{rsi_value:.2f}")
                 return True
                 
         except Exception as e:
@@ -94,7 +102,7 @@ class RSIDatabase:
                 cursor = conn.cursor()
                 
                 cursor.execute('''
-                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp
+                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
                     FROM rsi_signals
                     ORDER BY timestamp DESC
                     LIMIT ?
@@ -110,7 +118,8 @@ class RSIDatabase:
                         'signal_type': row[2],
                         'rsi_value': row[3],
                         'price': row[4],
-                        'timestamp': row[5]
+                        'timestamp': row[5],
+                        'previous_rsi': row[6]
                     })
                 
                 return signals
@@ -126,7 +135,7 @@ class RSIDatabase:
                 cursor = conn.cursor()
                 
                 cursor.execute('''
-                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp
+                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
                     FROM rsi_signals
                     WHERE symbol = ?
                     ORDER BY timestamp DESC
@@ -143,7 +152,8 @@ class RSIDatabase:
                         'signal_type': row[2],
                         'rsi_value': row[3],
                         'price': row[4],
-                        'timestamp': row[5]
+                        'timestamp': row[5],
+                        'previous_rsi': row[6]
                     })
                 
                 return signals

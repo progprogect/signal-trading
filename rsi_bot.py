@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict
 from aiogram import Bot
-from connectors.kraken_connector import KrakenConnector
+from connectors.hybrid_connector import HybridConnector
 from database import RSIDatabase
 from rsi_analyzer import RSIAnalyzer
 from web_interface import WebInterface
@@ -24,7 +24,7 @@ class RSIBot:
         
         # Инициализация компонентов
         self.database = RSIDatabase(config.DATABASE_PATH)
-        self.kraken_connector = KrakenConnector(config)
+        self.hybrid_connector = HybridConnector(config)
         self.rsi_analyzer = RSIAnalyzer(config, self.database)
         self.telegram_bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
         
@@ -89,7 +89,7 @@ class RSIBot:
         """Анализ одного символа"""
         try:
             # Получаем исторические данные
-            df = await self.kraken_connector.get_historical_data(
+            df = await self.hybrid_connector.get_historical_data(
                 symbol=symbol,
                 timeframe=self.current_timeframe,
                 limit=50
@@ -122,7 +122,7 @@ class RSIBot:
             # Анализируем каждый символ
             for symbol in self.current_symbols:
                 await self.analyze_symbol(symbol)
-                await asyncio.sleep(1.5)  # Пауза для Kraken rate limiting
+                await asyncio.sleep(1.5)  # Пауза для rate limiting
                 
             logger.info("Цикл анализа завершен")
             
@@ -168,8 +168,8 @@ class RSIBot:
             if hasattr(self.telegram_bot, 'session') and self.telegram_bot.session:
                 await self.telegram_bot.session.close()
                 
-            if self.kraken_connector:
-                self.kraken_connector.close()
+            if self.hybrid_connector:
+                self.hybrid_connector.close()
                 
             logger.info("✅ RSI бот остановлен")
             
