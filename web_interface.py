@@ -381,11 +381,43 @@ class WebInterface:
     async def get_telegram_users_api(self, request: web_request.Request):
         """API для получения пользователей Telegram"""
         try:
+            logger.info("Запрос к API получения пользователей Telegram")
+            
+            # Проверяем подключение к базе данных
+            if not self.database:
+                logger.error("База данных не инициализирована")
+                return web.json_response({'error': 'База данных не доступна'}, status=500)
+            
+            # Получаем пользователей
+            logger.info("Вызываем database.get_telegram_users()")
             users = self.database.get_telegram_users()
+            
+            logger.info(f"Получено {len(users)} пользователей Telegram")
+            
+            # Конвертируем datetime в строку для JSON
+            for user in users:
+                if user.get('created_at') and hasattr(user['created_at'], 'isoformat'):
+                    user['created_at'] = user['created_at'].isoformat()
+                elif user.get('created_at'):
+                    user['created_at'] = str(user['created_at'])
+                    
+                if user.get('approved_at') and hasattr(user['approved_at'], 'isoformat'):
+                    user['approved_at'] = user['approved_at'].isoformat()
+                elif user.get('approved_at'):
+                    user['approved_at'] = str(user['approved_at'])
+                    
+                if user.get('last_activity') and hasattr(user['last_activity'], 'isoformat'):
+                    user['last_activity'] = user['last_activity'].isoformat()
+                elif user.get('last_activity'):
+                    user['last_activity'] = str(user['last_activity'])
+            
             return web.json_response(users)
             
         except Exception as e:
             logger.error(f"Ошибка при получении пользователей Telegram: {str(e)}")
+            logger.error(f"Тип ошибки: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return web.json_response({'error': str(e)}, status=500)
             
     async def add_telegram_user_api(self, request: web_request.Request):

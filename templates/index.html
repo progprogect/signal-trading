@@ -801,13 +801,37 @@
         async function refreshTelegramUsers() {
             try {
                 const response = await fetch('/api/telegram_users');
-                const users = await response.json();
-                displayTelegramUsers(users);
-                updateUserStatistics(users);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Проверяем, что получили массив пользователей
+                if (!Array.isArray(data)) {
+                    // Если это объект ошибки
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    throw new Error('Получен некорректный ответ от сервера');
+                }
+                
+                displayTelegramUsers(data);
+                updateUserStatistics(data);
             } catch (error) {
                 console.error('Ошибка:', error);
                 document.getElementById('telegram-users-container').innerHTML = 
-                    '<div class="alert alert-danger">Ошибка при загрузке пользователей</div>';
+                    `<div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Ошибка при загрузке пользователей: ${error.message}
+                    </div>`;
+                
+                // Обнуляем статистику при ошибке
+                document.getElementById('total-users-count').textContent = '0';
+                document.getElementById('approved-users-count').textContent = '0';
+                document.getElementById('pending-users-count').textContent = '0';
+                document.getElementById('blocked-users-count').textContent = '0';
             }
         }
         
