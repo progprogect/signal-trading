@@ -22,8 +22,11 @@ class RSIBot:
         self.config = config
         self.is_running = False
         
+        # Проверяем переменные окружения
+        config.validate_config()
+        
         # Инициализация компонентов
-        self.database = RSIDatabase(config.DATABASE_PATH)
+        self.database = RSIDatabase(config.DATABASE_URL)
         self.hybrid_connector = HybridConnector(config)
         self.rsi_analyzer = RSIAnalyzer(config, self.database)
         self.telegram_bot = Bot(token=config.TELEGRAM_BOT_TOKEN)

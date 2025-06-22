@@ -1,14 +1,17 @@
-# Настройки Binance API
-BINANCE_API_KEY = "Wz1vXKRIJ463tMV2o8Qf5zuWLB5J0MuipMBWC4zlICOc4wk6gPhCniihNmy7iya6"
-BINANCE_API_SECRET = "9lEl9x3ayEHJ5RwRzCMG3Td3BG8ggsnt50S67emGKnMctihEKZORGWM51aCpmEd1"
+import os
+from typing import List
+
+# Настройки из переменных окружения (для Railway)
+BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
+BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 
 # Настройки TradingView
-TRADINGVIEW_USERNAME = ""
-TRADINGVIEW_PASSWORD = ""
+TRADINGVIEW_USERNAME = os.getenv("TRADINGVIEW_USERNAME", "")
+TRADINGVIEW_PASSWORD = os.getenv("TRADINGVIEW_PASSWORD", "")
 
 # Настройки Telegram
-TELEGRAM_BOT_TOKEN = "7818586285:AAHGM-RP1-fn2fPhlJM6w1OPU8PJa8HbUMI"
-TELEGRAM_CHAT_ID = "319719503"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # Символы для анализа (согласно требованиям пользователя)
 DEFAULT_SYMBOLS = [
@@ -25,12 +28,12 @@ RSI_OVERBOUGHT = 70
 AVAILABLE_TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d"]
 DEFAULT_TIMEFRAME = "5m"
 
-# Настройки веб-интерфейса
-WEB_HOST = "127.0.0.1"
-WEB_PORT = 8081
+# Настройки веб-интерфейса (Railway автоматически назначает порт)
+WEB_HOST = os.getenv("HOST", "0.0.0.0")  # 0.0.0.0 для Railway
+WEB_PORT = int(os.getenv("PORT", "8081"))  # Railway устанавливает переменную PORT
 
-# Настройки базы данных
-DATABASE_PATH = "rsi_signals.db"
+# Настройки базы данных (PostgreSQL для Railway)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///rsi_signals.db")  # Fallback для локальной разработки
 
 # Настройки уведомлений
 CHECK_INTERVAL = 180  # секунд между проверками (3 минуты)
@@ -72,4 +75,19 @@ PATTERNS = {
     "morning_evening_star": {
         "gap_tolerance": 0.001  # 0.1% допустимый разрыв между свечами
     }
-} 
+}
+
+# Проверка обязательных переменных окружения
+def validate_config():
+    """Проверка наличия обязательных переменных окружения"""
+    required_vars = {
+        "TELEGRAM_BOT_TOKEN": TELEGRAM_BOT_TOKEN,
+        "TELEGRAM_CHAT_ID": TELEGRAM_CHAT_ID
+    }
+    
+    missing_vars = [var for var, value in required_vars.items() if not value]
+    
+    if missing_vars:
+        raise ValueError(f"Отсутствуют обязательные переменные окружения: {', '.join(missing_vars)}")
+    
+    return True 

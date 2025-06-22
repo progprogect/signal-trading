@@ -1,0 +1,15 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[build.buildCommand]
+# Команда сборки не требуется для Python проекта
+
+[deploy.checkPath]
+# Railway будет проверять по этому пути что приложение запущено
+path = "/" 

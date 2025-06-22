@@ -1,0 +1,1 @@
+web: python rsi_bot.py 
