@@ -67,15 +67,12 @@ class RSIBot:
     async def send_telegram_notification(self, signal: Dict):
         """Отправка уведомления в Telegram всем одобренным пользователям"""
         try:
-            # Формируем сообщение
+            # Формируем простое сообщение
             message = self.rsi_analyzer.get_signal_description(signal)
             
-            # Добавляем ссылку на TradingView
-            tv_url = self.rsi_analyzer.get_tradingview_url(
-                signal['symbol'], 
-                signal['timeframe']
-            )
-            message += f"\n\n📊 [Открыть на TradingView]({tv_url})"
+            # Если сообщение пустое, не отправляем
+            if not message.strip():
+                return
             
             # Получаем всех одобренных пользователей
             approved_users = self.database.get_approved_telegram_users()
@@ -99,9 +96,7 @@ class RSIBot:
                     # Для приватных чатов user_id = chat_id
                     await self.telegram_bot.send_message(
                         chat_id=user['user_id'],
-                        text=message,
-                        parse_mode='Markdown',
-                        disable_web_page_preview=True
+                        text=message
                     )
                     sent_count += 1
                     

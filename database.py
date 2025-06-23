@@ -221,27 +221,53 @@ class RSIDatabase:
             logger.error(f"Ошибка при добавлении сигнала: {str(e)}")
             return False
             
-    def get_recent_signals(self, limit: int = 100) -> List[Dict]:
-        """Получение последних сигналов"""
+    def get_recent_signals(self, symbol: str = None, timeframe: str = None, hours_back: float = None, limit: int = 100) -> List[Dict]:
+        """Получение последних сигналов с опциональной фильтрацией"""
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
             
-            if self.db_type == 'postgresql':
-                cursor.execute('''
-                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
-                    FROM rsi_signals
-                    ORDER BY timestamp DESC
-                    LIMIT %s
-                ''', (limit,))
-            else:
-                cursor.execute('''
-                    SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
-                    FROM rsi_signals
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                ''', (limit,))
+            # Базовый SQL запрос
+            sql_base = '''
+                SELECT symbol, timeframe, signal_type, rsi_value, price, timestamp, previous_rsi
+                FROM rsi_signals
+            '''
             
+            conditions = []
+            params = []
+            
+            # Добавляем условия фильтрации
+            if symbol:
+                conditions.append("symbol = " + ("%s" if self.db_type == 'postgresql' else "?"))
+                params.append(symbol)
+                
+            if timeframe:
+                conditions.append("timeframe = " + ("%s" if self.db_type == 'postgresql' else "?"))
+                params.append(timeframe)
+                
+            if hours_back is not None:
+                if self.db_type == 'postgresql':
+                    conditions.append("timestamp >= NOW() - INTERVAL '%s hours'")
+                else:
+                    conditions.append("timestamp >= datetime('now', '-' || ? || ' hours')")
+                params.append(hours_back)
+            
+            # Формируем полный SQL запрос
+            if conditions:
+                sql_query = sql_base + " WHERE " + " AND ".join(conditions)
+            else:
+                sql_query = sql_base
+                
+            sql_query += " ORDER BY timestamp DESC"
+            
+            # Добавляем LIMIT
+            if self.db_type == 'postgresql':
+                sql_query += " LIMIT %s"
+            else:
+                sql_query += " LIMIT ?"
+            params.append(limit)
+            
+            cursor.execute(sql_query, params)
             rows = cursor.fetchall()
             
             signals = []

@@ -36,7 +36,7 @@ WEB_PORT = int(os.getenv("PORT", "8081"))  # Railway устанавливает 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///rsi_signals.db")  # Fallback для локальной разработки
 
 # Настройки уведомлений
-CHECK_INTERVAL = 180  # секунд между проверками (3 минуты)
+CHECK_INTERVAL = 60  # секунд между проверками (1 минута)
 
 # Параметры канала
 CHANNEL_TOUCHES_MIN = 4  # Минимальное количество касаний для построения канала

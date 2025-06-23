@@ -14,84 +14,122 @@ class RSIAnalyzer:
         self.previous_rsi_states = {}  # Хранение предыдущих состояний RSI
         
     def analyze_rsi_signals(self, symbol: str, timeframe: str, df: pd.DataFrame) -> List[Dict]:
-        """Анализ RSI сигналов для символа"""
+        """Анализ RSI сигналов для символа с улучшенной логикой"""
         try:
-            if df is None or len(df) < 2:
+            if df is None or len(df) < 5:
                 return []
                 
             signals = []
             
-            # Получаем последние два значения RSI для определения пересечения
-            current_rsi = df['rsi'].iloc[-1]
-            previous_rsi = df['rsi'].iloc[-2]
-            current_price = df['close'].iloc[-1]
-            current_time = df.index[-1]
+            # Проверяем последние 5 свечей на предмет пропущенных сигналов
+            lookback_candles = min(5, len(df))
             
-            # Создаем ключ для отслеживания состояния
-            state_key = f"{symbol}_{timeframe}"
-            
-            # Проверяем на пересечение границ RSI
-            signal_type = None
-            
-            # Пересечение уровня перепроданности (30) снизу вверх
-            if (previous_rsi <= self.config.RSI_OVERSOLD and 
-                current_rsi > self.config.RSI_OVERSOLD):
-                signal_type = "oversold_exit"
+            for i in range(lookback_candles - 1, 0, -1):
+                current_rsi = df['rsi'].iloc[-i]
+                previous_rsi = df['rsi'].iloc[-i-1]
+                current_price = df['close'].iloc[-i]
+                current_time = df.index[-i]
                 
-            # Пересечение уровня перекупленности (70) сверху вниз
-            elif (previous_rsi >= self.config.RSI_OVERBOUGHT and 
-                  current_rsi < self.config.RSI_OVERBOUGHT):
-                signal_type = "overbought_exit"
+                # Пропускаем NaN значения
+                if pd.isna(current_rsi) or pd.isna(previous_rsi):
+                    continue
                 
-            # Пересечение уровня перепроданности (30) сверху вниз
-            elif (previous_rsi > self.config.RSI_OVERSOLD and 
-                  current_rsi <= self.config.RSI_OVERSOLD):
-                signal_type = "oversold_enter"
+                # Проверяем, был ли уже обработан этот момент времени
+                if self._was_signal_processed(symbol, timeframe, current_time):
+                    continue
                 
-            # Пересечение уровня перекупленности (70) снизу вверх
-            elif (previous_rsi < self.config.RSI_OVERBOUGHT and 
-                  current_rsi >= self.config.RSI_OVERBOUGHT):
-                signal_type = "overbought_enter"
-            
-            # Если обнаружено пересечение, создаем сигнал
-            if signal_type:
-                signal = {
-                    'symbol': symbol,
-                    'timeframe': timeframe,
-                    'signal_type': signal_type,
-                    'rsi_value': current_rsi,
-                    'price': current_price,
-                    'timestamp': current_time,
-                    'previous_rsi': previous_rsi
-                }
+                signal_type = None
                 
-                signals.append(signal)
+                # Пересечение уровня перепроданности (30) сверху вниз (вход в зону)
+                if (previous_rsi > self.config.RSI_OVERSOLD and 
+                    current_rsi <= self.config.RSI_OVERSOLD):
+                    signal_type = "oversold_enter"
+                    
+                # Пересечение уровня перекупленности (70) снизу вверх (вход в зону)
+                elif (previous_rsi < self.config.RSI_OVERBOUGHT and 
+                      current_rsi >= self.config.RSI_OVERBOUGHT):
+                    signal_type = "overbought_enter"
                 
-                # Сохраняем сигнал в базу данных
-                self.database.add_signal(
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    signal_type=signal_type,
-                    rsi_value=current_rsi,
-                    price=current_price,
-                    timestamp=current_time,
-                    previous_rsi=previous_rsi
-                )
-                
-                logger.info(f"RSI сигнал: {symbol} {timeframe} {signal_type} "
-                           f"RSI: {previous_rsi:.2f} -> {current_rsi:.2f}")
-            
-            # Обновляем состояние
-            self.previous_rsi_states[state_key] = {
-                'rsi': current_rsi,
-                'timestamp': current_time
-            }
+                # Если обнаружено пересечение, создаем сигнал
+                if signal_type:
+                    signal = {
+                        'symbol': symbol,
+                        'timeframe': timeframe,
+                        'signal_type': signal_type,
+                        'rsi_value': current_rsi,
+                        'price': current_price,
+                        'timestamp': current_time,
+                        'previous_rsi': previous_rsi
+                    }
+                    
+                    # Проверяем, не дублируется ли сигнал
+                    if not self._is_duplicate_signal(signal):
+                        signals.append(signal)
+                        
+                        # Сохраняем сигнал в базу данных
+                        self.database.add_signal(
+                            symbol=symbol,
+                            timeframe=timeframe,
+                            signal_type=signal_type,
+                            rsi_value=current_rsi,
+                            price=current_price,
+                            timestamp=current_time,
+                            previous_rsi=previous_rsi
+                        )
+                        
+                        logger.info(f"RSI сигнал: {symbol} {timeframe} {signal_type} "
+                                   f"RSI: {previous_rsi:.2f} -> {current_rsi:.2f}")
             
             return signals
             
         except Exception as e:
             logger.error(f"Ошибка при анализе RSI для {symbol}: {str(e)}")
             return []
+            
+    def _was_signal_processed(self, symbol: str, timeframe: str, timestamp) -> bool:
+        """Проверка, был ли уже обработан сигнал для этого момента времени"""
+        try:
+            # Проверяем последние сигналы из базы данных
+            recent_signals = self.database.get_recent_signals(symbol, timeframe, hours_back=2)
+            
+            for signal in recent_signals:
+                # Преобразуем timestamp в строку для сравнения
+                signal_time = signal.get('timestamp', '')
+                if isinstance(signal_time, str):
+                    signal_time = pd.to_datetime(signal_time)
+                
+                current_time = pd.to_datetime(timestamp)
+                
+                # Считаем обработанным, если разница менее 1 минуты
+                if abs((signal_time - current_time).total_seconds()) < 60:
+                    return True
+                    
+            return False
+            
+        except Exception as e:
+            logger.error(f"Ошибка при проверке обработанных сигналов: {str(e)}")
+            return False
+            
+    def _is_duplicate_signal(self, signal: Dict) -> bool:
+        """Проверка на дублирование сигнала"""
+        try:
+            symbol = signal['symbol']
+            timeframe = signal['timeframe']
+            signal_type = signal['signal_type']
+            
+            # Проверяем последние сигналы за 10 минут
+            recent_signals = self.database.get_recent_signals(symbol, timeframe, hours_back=0.17)  # 10 минут
+            
+            for recent_signal in recent_signals:
+                if recent_signal.get('signal_type') == signal_type:
+                    logger.debug(f"Найден дублирующий сигнал для {symbol} {signal_type}")
+                    return True
+                    
+            return False
+            
+        except Exception as e:
+            logger.error(f"Ошибка при проверке дублирования сигнала: {str(e)}")
+            return False
             
     def analyze_historical_rsi_signals(self, symbol: str, timeframe: str, df: pd.DataFrame, days_back: int = 2) -> List[Dict]:
         """Анализ исторических RSI сигналов за указанный период"""
@@ -178,41 +216,15 @@ class RSIAnalyzer:
     def get_signal_description(self, signal: Dict) -> str:
         """Получение описания сигнала для уведомления"""
         try:
-            signal_descriptions = {
-                'oversold_enter': '🔴 *ПЕРЕПРОДАН!* RSI ушел ниже 30',
-                'overbought_enter': '🟡 *ПЕРЕКУПЛЕН!* RSI поднялся выше 70'
-            }
-            
-            signal_type = signal['signal_type']
-            description = signal_descriptions.get(signal_type, 'Неизвестный сигнал')
-            
             # Только для входов в зоны - выходы не показываем
-            if signal_type not in ['oversold_enter', 'overbought_enter']:
+            if signal['signal_type'] not in ['oversold_enter', 'overbought_enter']:
                 return ""
             
-            historical_mark = " (исторический)" if signal.get('historical', False) else ""
+            # Простой формат: название монеты + RSI
+            symbol_clean = signal['symbol'].replace('USDT', '')
+            rsi_value = signal['rsi_value']
             
-            # Добавляем эмодзи в зависимости от символа
-            symbol_emoji = {
-                'BTCUSDT': '₿', 'DOGEUSDT': '🐕', 'PEPEUSDT': '🐸',
-                'SUIUSDT': '🌊', 'BIGTIMEUSDT': '⏰', 'ALTUSDT': '⭐',
-                'WLDUSDT': '🌍'
-            }.get(signal['symbol'], '💰')
-            
-            # Форматируем время
-            try:
-                if hasattr(signal['timestamp'], 'strftime'):
-                    time_str = signal['timestamp'].strftime('%H:%M:%S')
-                else:
-                    time_str = str(signal['timestamp'])[:19]
-            except:
-                time_str = str(signal['timestamp'])
-            
-            return (f"{description}{historical_mark}\n\n"
-                   f"{symbol_emoji} *{signal['symbol'].replace('USDT', '')}*\n"
-                   f"📈 RSI: *{signal['rsi_value']:.2f}*\n"
-                   f"💰 Цена: *${signal['price']:.4f}*\n"
-                   f"⏰ {time_str} | {signal['timeframe']}")
+            return f"{symbol_clean} RSI: {rsi_value:.1f}"
             
         except Exception as e:
             logger.error(f"Ошибка при формировании описания сигнала: {str(e)}")
